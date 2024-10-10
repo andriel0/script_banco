@@ -5,7 +5,7 @@ import json
 from tables import Base, Empenho, AgentePublico, Bens, Bens1, Empenho1
 from decoder import LazyDecoder
 from importacoes import range_string, meses
-from tables1 import Liquidacao, Base1
+from tables1 import Liquidacao, Base1, NotasPagamento, NotasFiscais
 
 
 mun = ['015', '027', '049', '061', '073', '075', '085', '087',
@@ -21,7 +21,8 @@ session1 = Session(engine1)
 
 
 def consume_api(api_r, table):
-    table_dic = {'Empenho':Empenho1, 'AgentePublico':AgentePublico, 'Bens':Empenho1, 'liquidacao':Liquidacao}
+    table_dic = {'Empenho':Empenho1, 'AgentePublico':AgentePublico, 'Bens':Empenho1, 'liquidacao':Liquidacao,
+                 'notas_pag':NotasPagamento, 'notas_fis':NotasFiscais}
     try:
         try:
             api_json = api_r.json()
@@ -136,3 +137,39 @@ def povoar_tabela1(table):
                                 print(f'Erro na {table} do município {m} e data de referência da liquidação {month/year}')
             except:
                 print('Possível erro de API')
+        elif table == 'notas_pag':
+            try:
+                for year in range(2017, 2025):
+                    try:
+                        api_request = requests.get(f'https://api.tce.ce.gov.br/index.php/sim/1_0/notas_pagamentos.json?'
+                                                   f'codigo_municipio={m}&exercicio_orcamento={year}00')
+                        consume_api(api_request, table)
+                    except:
+                        for month in meses:
+                            try:
+                                api_request = requests.get(f'https://api.tce.ce.gov.br/index.php/sim/1_0/notas_'
+                                                           f'pagamentos.json?codigo_municipio={m}&exercicio_orcamento='
+                                                           f'{year}00&data_referencia={year}{month}')
+                                consume_api(api_request, table)
+                            except:
+                                print(f'Erro na {table} do município {m} e data de referência da liquidação {month/year}')
+            except:
+                print(f'Possível erro de API no município {m}')
+        elif table == 'notas_fis':
+            try:
+                for year in range(2017, 2025):
+                    try:
+                        api_request = requests.get(f'https://api.tce.ce.gov.br/index.php/sim/1_0/notas_fiscais.json?'
+                                                   f'codigo_municipio={m}&exercicio_orcamento={year}00')
+                        consume_api(api_request, table)
+                    except:
+                        for month in meses:
+                            try:
+                                api_request = requests.get(f'https://api.tce.ce.gov.br/index.php/sim/1_0/notas_'
+                                                           f'fiscais.json?codigo_municipio={m}&exercicio_orcamento='
+                                                           f'{year}00&data_referencia={year}{month}')
+                                consume_api(api_request, table)
+                            except:
+                                print(f'Erro na {table} do município {m} e data de referência da liquidação {month/year}')
+            except:
+                print(f'Possível erro de API no município {m}')
