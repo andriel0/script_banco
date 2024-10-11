@@ -5,7 +5,7 @@ import json
 from tables import Base, Empenho, AgentePublico, Bens, Bens1, Empenho1
 from decoder import LazyDecoder
 from importacoes import range_string, meses
-from tables1 import Liquidacao, Base1, NotasPagamento, NotasFiscais
+from tables1 import Liquidacao, Base1, NotasPagamento, NotasFiscais, NotasEmpenho
 
 
 mun = ['015', '027', '049', '061', '073', '075', '085', '087',
@@ -22,7 +22,7 @@ session1 = Session(engine1)
 
 def consume_api(api_r, table):
     table_dic = {'Empenho':Empenho1, 'AgentePublico':AgentePublico, 'Bens':Empenho1, 'liquidacao':Liquidacao,
-                 'notas_pag':NotasPagamento, 'notas_fis':NotasFiscais}
+                 'notas_pag':NotasPagamento, 'notas_fis':NotasFiscais, 'notas_emp':NotasEmpenho}
     try:
         try:
             api_json = api_r.json()
@@ -41,6 +41,26 @@ def consume_api(api_r, table):
         session1.add(code_entry)
 
     session1.commit()
+
+
+def consume_orgaos_api(api_r):
+    try:
+        try:
+            api_json = api_r.json()
+        except:
+            api_json = api_r.json(cls=LazyDecoder)
+
+        try:
+            api = api_json['data']['data']
+        except:
+            api = api_json['rsp']['_content']
+    except:
+        raise ConnectionError('API FORA DO AR')
+
+    lista = []
+    for dic in api:
+        lista.append(dic["codigo_orgao"])
+    return lista
 
 
 def povoar_tabela(table):
@@ -171,5 +191,23 @@ def povoar_tabela1(table):
                                 consume_api(api_request, table)
                             except:
                                 print(f'Erro na {table} do município {m} e data de referência da liquidação {month/year}')
+            except:
+                print(f'Possível erro de API no município {m}')
+        elif table == 'notas_emp':
+            try:
+                for year in range(2017, 2025):
+                    api_request = requests.get(f'https://api.tce.ce.gov.br/index.php/sim/1_0/orgaos.json?codigo_municipio'
+                                               f'={m}&exercicio_orcamento={year}00')
+                    orgaos = consume_orgaos_api(api_request)
+
+                    for orgao in orgaos:
+                        for month in meses:
+                            try:
+                                api_request = requests.get(f'https://api.tce.ce.gov.br/index.php/sim/1_0/notas_empenhos.'
+                                                           f'json?codigo_municipio={m}&codigo_orgao={orgao}&data_'
+                                                           f'referencia_empenho={year}{month}')
+                                consume_api(api_request, table)
+                            except:
+                                print(f'Erro na {table} do município {m} e data de referência do empenho {month / year}')
             except:
                 print(f'Possível erro de API no município {m}')

@@ -9,5 +9,7 @@ from conexao import povoar_tabela, Base, engine, engine1, povoar_tabela1, Base1
 # Base1.metadata.drop_all(engine1)
 # Base1.metadata.create_all(engine1)
 # povoar_tabela1('liquidacao')
-povoar_tabela1('notas_pag')
+# povoar_tabela1('notas_pag')
 # povoar_tabela1('notas_fis')
+povoar_tabela1('notas_emp')
+

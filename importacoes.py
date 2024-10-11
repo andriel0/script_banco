@@ -1,5 +1,5 @@
 range_string = []
-for i in range(54, 186):
+for i in range(2, 186):
     cod = str(i)
     if len(cod) < 3:
         cod = ('0' * (3 - len(cod))) + cod
