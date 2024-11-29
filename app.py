@@ -12,4 +12,3 @@ from conexao import povoar_tabela, Base, engine, engine1, povoar_tabela1, Base1
 # povoar_tabela1('notas_pag')
 # povoar_tabela1('notas_fis')
 povoar_tabela1('notas_emp')
-

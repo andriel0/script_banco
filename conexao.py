@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 import requests
 import json
 from tables import Base, Empenho, AgentePublico, Bens, Bens1, Empenho1
-from decoder import LazyDecoder
+from decoder import LazyDecoder, clean_json
 from importacoes import range_string, meses
 from tables1 import Liquidacao, Base1, NotasPagamento, NotasFiscais, NotasEmpenho
 
@@ -21,26 +21,43 @@ session1 = Session(engine1)
 
 
 def consume_api(api_r, table):
-    table_dic = {'Empenho':Empenho1, 'AgentePublico':AgentePublico, 'Bens':Empenho1, 'liquidacao':Liquidacao,
-                 'notas_pag':NotasPagamento, 'notas_fis':NotasFiscais, 'notas_emp':NotasEmpenho}
+    table_dic = {
+        'Empenho': Empenho1,
+        'AgentePublico': AgentePublico,
+        'Bens': Empenho1,
+        'liquidacao': Liquidacao,
+        'notas_pag': NotasPagamento,
+        'notas_fis': NotasFiscais,
+        'notas_emp': NotasEmpenho
+    }
+
     try:
-        try:
-            api_json = api_r.json()
-        except:
-            api_json = api_r.json(cls=LazyDecoder)
+        # Clean and parse the API response
+        api_cleaned = clean_json(api_r.text)  # Assuming `api_r` is a `requests.Response` object
+        api_json = json.loads(api_cleaned, cls=LazyDecoder)
+    except Exception as e:
+        raise ConnectionError(f"Failed to clean or parse API data: {e}")
 
-        try:
-            api = api_json['data']['data']
-        except:
-            api = api_json['rsp']['_content']
-    except:
-        raise ConnectionError('API FORA DO AR')
+    # Extract data based on known API structure
+    try:
+        if 'data' in api_json and 'data' in api_json['data']:
+            api_data = api_json['data']['data']
+        elif 'rsp' in api_json and '_content' in api_json['rsp']:
+            api_data = api_json['rsp']['_content']
+        else:
+            raise KeyError("Expected data structure not found in API response.")
+    except Exception as e:
+        raise ValueError(f"Error while extracting data from API response: {e}")
 
-    for item in api:
-        code_entry = table_dic[table](**item)
-        session1.add(code_entry)
-
-    session1.commit()
+    # Insert data into the database
+    try:
+        for item in api_data:
+            code_entry = table_dic[table](**item)  # Map JSON keys to the model
+            session1.add(code_entry)
+        session1.commit()
+    except Exception as e:
+        session1.rollback()
+        raise RuntimeError(f"Failed to insert data into the database: {e}")
 
 
 def consume_orgaos_api(api_r):
@@ -198,16 +215,39 @@ def povoar_tabela1(table):
                 for year in range(2017, 2025):
                     api_request = requests.get(f'https://api.tce.ce.gov.br/index.php/sim/1_0/orgaos.json?codigo_municipio'
                                                f'={m}&exercicio_orcamento={year}00')
+
                     orgaos = consume_orgaos_api(api_request)
+
+                    print(year, m, orgaos)
 
                     for orgao in orgaos:
                         for month in meses:
                             try:
+                                print(f'Mun: {m} em {month}/{year} - órgão {orgao}')
                                 api_request = requests.get(f'https://api.tce.ce.gov.br/index.php/sim/1_0/notas_empenhos.'
                                                            f'json?codigo_municipio={m}&codigo_orgao={orgao}&data_'
                                                            f'referencia_empenho={year}{month}')
-                                consume_api(api_request, table)
+                                if api_request:
+                                    consume_api(api_request, table)
+                                else:
+                                    print(f'Não deu no {m} em {month}/{year}')
                             except:
                                 print(f'Erro na {table} do município {m} e data de referência do empenho {month / year}')
             except:
                 print(f'Possível erro de API no município {m}')
+
+            # import required module
+            from playsound import playsound
+
+            # for playing note.wav file
+            playsound('mixkit-doorbell-tone-2864.wav')
+
+# api_request = requests.get(f'https://api.tce.ce.gov.br/index.php/sim/1_0/notas_empenhos.json?codigo_municipio'
+#                            f'=012&codigo_orgao=06&data_referencia_empenho=202305')
+# try:
+#     consume_api(api_request, 'notas_emp')
+# except:
+#     raise ConnectionError('ERRO')
+
+# Mun: 013 em 08/2017 - órgão 05
+# Possível erro de API no município 013
